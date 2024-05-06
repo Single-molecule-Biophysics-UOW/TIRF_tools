@@ -108,3 +108,5 @@ ENV/
 .vscode/
 .idea/
 
+#tokens
+testpypi_token.txt
