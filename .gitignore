@@ -110,3 +110,4 @@ ENV/
 
 #tokens
 testpypi_token.txt
+.pypirc
