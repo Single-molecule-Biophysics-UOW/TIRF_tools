@@ -7,22 +7,34 @@ Created on Wed May 31 10:07:49 2023
 
 
 from dask_image import imread
+from tirf_tools import io
 from dask_image import ndfilters
+from scipy.ndimage.filters import gaussian_filter
 from dask import array as da
 import os
 import napari
 import skimage
 import numpy as np
+from dask import delayed
 from dask.diagnostics import ProgressBar
 
-
-
-def div_by_gauss_da(data,sigma_x=20,sigma_y=20,sigma_z=0,offset=0):
+#%%
+# @delayed
+def div_by_gauss_da(data,sigma=20,offset=0):
+    """
+    Let's assume dim order: TCZYX. We only blur in x and y.
+    
+    """
+    sigmas = da.zeros(np.array(data.shape).shape)
+    sigmas[-2] = sigma
+    sigmas[-1] = sigma
     input_dtype = data.dtype
     #subtract electronic offset
     data = data - offset
     #gaussian blur/normalize to 0,1    
-    blur = ndfilters.gaussian(data, (sigma_x,sigma_y))
+    
+    #somehow when computing delayed one of the arrays becomes numpy. da.asarray fixes this
+    blur = ndfilters.gaussian(da.asarray(data), sigmas) 
     blur = blur/da.max(blur).astype(input_dtype)
     #calculate result (will be 32 bit?)
     res = data / blur
@@ -35,32 +47,31 @@ def div_by_gauss_da(data,sigma_x=20,sigma_y=20,sigma_z=0,offset=0):
     res.clip(0,max_value)
     return res
 
-def corr_stack_dask(stack, sigma, offset):
+def correct_data(data, sigma, darkframe):
     
-    lazy_arrays = [div_by_gauss_da(stack[n], 
-                                sigma_x=sigma,
-                                sigma_y=sigma,
-                                sigma_z=0, 
-                                offset=offset) for n in range(0, stack.shape[0])]
+    if not isinstance(data,list):
+        data = [data]
+    for i in data:
+        with ProgressBar():
+            i['corr_data'] = div_by_gauss_da(i['data']).compute()
+
     
-    dask_stack = da.stack(lazy_arrays, axis=0)
-    return dask_stack.astype(np.float32)
-
-
-# def corr_batch(folder, sigma, offset):
-#     files = [x for x in os.listdir(folder) if (x.endswith('nd2')) and os.path.isdir(folder+x)== False]
-#     for i in files:
-#         print('correcting {}'.format(i))
-#         data = imread.imread(folder+i).astype(np.float16)
-#         with ProgressBar():
-#             corr = corr_stack_dask(data, sigma, offset).compute()
-#         save_tiff(folder+'corr_'+i+'.tiff',corr)
-#             # da.to_zarr(corr,folder+'corr_'+i, compute = True)
-
-# def save_tiff(path, data,**kwargs):
-#     skimage.io.imsave(path, data, **kwargs)
-
-
+#%%     
+if __name__ == '__main__':
+    # path = r'Z:/In_vitro_replication/Stefan/test/N41_Q55_vars_Tramp_ProbeA647_OD2_400ms_008.nd2'
+    
+    file = io.load_image()
+    #%%
+    
+    correct_data(file, sigma= 20, darkframe=488)
     
     
     
+    #%%
+    from napari import Viewer
+    v = Viewer()
+    
+    
+    
+    v.add_image(file['corr_data'])
+    # v.add_image(frame)

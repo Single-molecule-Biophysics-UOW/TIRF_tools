@@ -5,7 +5,7 @@ Created on Mon May  6 16:28:52 2024
 @author: smueller
 """
 
-from tirf_tools import io as io
+import io_test as io
 from matplotlib import pyplot as plt
 import pims
 import dask as da
@@ -34,26 +34,58 @@ def _read_frame(fn, i, *, arrayfunc=np.asanyarray):
 
 #%%
 
-path1 = r'Z:\In_vitro_replication\Stefan\test/Yeast_coupled_001.nd2'
-# path2 = r'Z:\Barcoding_subgroup\Current_experiments\240502_3/Enzymes_no65_ProbeA647_OD15_200ms_007.nd2'
+from dask_image import imread
+import pims
+path = r'Z:\In_vitro_replication\Stefan\test\test/multi_series_multiC_001.nd2'
+im_dask = imread.imread(path)
+im_pims = pims.open(path)
+
+print('dask:',im_dask.shape)
+print('pims:',im_pims)
+
+
+
+#%%
+# test_data/multi_series_multiC_002.nd2
+path1 = r'Z:\Barcoding_subgroup\Current_experiments\240509/2colourtest.nd2'
+im = imread.imread(path1)
+print(im.shape)
 with pims.open(path1) as im:
+    print(im.shape)
     print(im)
-    ax = im.axes    
-    shape = (len(im),) + im.frame_shape
-    dtype = np.dtype(im.pixel_type)
+    meta = im.metadata
+
+
+#%%
+# path2 = r'Z:\Barcoding_subgroup\Current_experiments\240502_3/Enzymes_no65_ProbeA647_OD15_200ms_007.nd2'
+
+with pims.open(path) as imgs:    
+    shape = (len(imgs),) + imgs.frame_shape
+    print(shape)
+    #change iteration axis
+    imgs.iter_axes = 'v'
+    ax_bundle = ''.join(imgs.axes).replace('v','')
+    ax_bundle_sorted = ax_bundle.replace('x','').replace('y','') + 'xy'
+    imgs.bundle_axes = ax_bundle_sorted
+    #get the hsape gain
+    shape = (len(imgs),) + imgs.frame_shape
+    print(shape)
     
-    print(len(im))
-    im.iter_axes = 'tv'
-    print(len(im))
-    
-    ar = np.asanyarray(im[0])
     
 #%%
 
-im = io.imread(path1)
 
+    
 #%%
 
+im = io.load_image(compute=False)
+
+#%%
+from napari import Viewer
+#%%
+v = Viewer()
+#%%
+v.add_image(im['Z:/In_vitro_replication/Stefan/test/test/multi_series_multiC_002.nd2'])
 
 
 #%%
@@ -78,7 +110,7 @@ from napari import Viewer
 #%%
 v = Viewer()
 #%%
-v.add_image(a)
+v.add_image(im)
 
 
 

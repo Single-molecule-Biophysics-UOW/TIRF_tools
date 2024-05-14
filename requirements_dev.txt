@@ -11,3 +11,4 @@ dask==2022.02.1
 numpy==1.21.6
 nd2reader==3.3.0
 dask_image==2023.03.0
+aicsimageio==4.14.0

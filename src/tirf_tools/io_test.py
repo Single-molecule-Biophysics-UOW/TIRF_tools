@@ -41,7 +41,7 @@ def save_tiff(data, path = None,**kwargs):
     skimage.io.imsave(file, data, **kwargs)
 
 def load_dask_image(file, dtype = np.float32):
-    data_raw = imread.imread(file).astype(dtype)
+    data_raw = imread(file).astype(dtype)
     return data_raw
 
 def load_raw(path = None, compute = True, sigma = 50, darkframe = 433, correct = True):
@@ -152,7 +152,7 @@ def load_image_pims(path = None, compute = True, correct = False, Series=1, dtyp
     else:
         data = {}
         check_file_permissions(file)
-        im = im = load_pims(f, **kwargs)
+        im = load_pims(f, **kwargs)
         data['path'] = f
         data['name'] = os.path.basename(f)
         data['data'] = im
