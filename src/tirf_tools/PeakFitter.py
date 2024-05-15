@@ -11,12 +11,12 @@ peak finder and fitter for python!
 from tkinter import filedialog
 from tkinter import Tk
 from dask_image import imread
-import io
+from tirf_tools import io, corrections
 
 from HMM_barcoding.image_utils import io_all
 from dask import array as da
 from dask_image import ndfilters
-import napari
+from napari import Viewer
 import skimage
 import numpy as np
 import scipy.optimize as opt
@@ -36,20 +36,33 @@ cfg.set(pool=pool)
 #%% find pareticles
 #use difference of gaussian algorithm
 
+
+def chooseXY(data, dim_order = 'TCZYX'):
+    num_dims = data.ndim
+    print(num_dims)
+    Xindex,Yindex = dim_order.index('X'), dim_order.index('Y')
+    slices = [slice(0)] * num_dims
+
+    slices[Xindex] = slice(data.shape[Xindex])
+    slices[Yindex] = slice(data.shape[Yindex])
+
+
+
+    data = data[tuple(slices)]
+    print(data.shape)
+
 def peak_finder(data, roi= [0,0,512,512], min_dist = 10,**kwargs):
     #TODO: make sure its only one frame!
     #kwords: max_sigma=20, threshold_rel=0.05, overlap = 1.
-        
+    #only 2D is supported for now
+    #assumption: Y and X are the two last dimensions in the array
+    data=data.reshape(data.shape[-2],data.shape[-1])
     blobs_dog = skimage.feature.blob_log(data, **kwargs)
-    
     peaks = blobs_dog[:,0:2]
-    
     peaks = peaks[(peaks[:,0] > roi[0]) & (peaks[:,1] > roi[1])]
     peaks = peaks[(peaks[:,0] < roi[2]) & (peaks[:,1] < roi[3])]
-    
     mask = np.ones(peaks.shape, dtype = bool)
     dist = distance.cdist(peaks,peaks)
-    
     for i,d in enumerate(dist):
         mind = np.min(d[d!=0])
         if mind < min_dist:
@@ -68,13 +81,11 @@ def make_projection(data, projection = 'mean'):
         
     return projs
 
-def make_single_projection(data, projection = 'mean'):
-    
-    
-    
-        #make projection
-    proj = getattr(type(data),projection)(data, axis=0)
-        
+def projection(data, projection = 'mean', dim_order = 'TCZYX', dimension = 'T'):
+    #find axis index
+    axis = dim_order.index(dimension)
+    #make projection
+    proj = getattr(type(data),projection)(data, axis=0)      
     return proj
 
 
@@ -93,13 +104,14 @@ def twoD_Gaussian(xy, amplitude, xo, yo, sigma_x, sigma_y, theta, offset):
 
 
 def peak_fitter(data, points, r, intitial_guess = [2,2,0,0]):
-    
+    #only 2D is supported for now
+    #assumption: Y and X are the two last dimensions in the array
+    data=data.reshape(data.shape[-2],data.shape[-1])
     #loops through spots:    
     spots = []
     f=0
     for roi in tqdm.tqdm(points):
-        x,y = roi[0],roi[1]
-        # print(data.shape)
+        x,y = int(roi[0]),int(roi[1])
         fit_region = data[x-r:x+r,y-r:y+r]
         #check boundaries:
         if fit_region.shape != (2*r,2*r):
@@ -127,50 +139,27 @@ def peak_fitter(data, points, r, intitial_guess = [2,2,0,0]):
         
 #%%    
 if __name__ == "__main__":    
-    with ProgressBar(): #load full image file in memory
-        data = [x for x in io_all.load_image(sigma = 20, darkframe = 480)]
-        
-    
+    im = io.load_image()
+    corrections.correct_data(im, sigma= 20, darkframe=488)
+    im['std_proj'] = projection(im['corr_data'],projection='std')
     #%%
-    if len(data) == 1:
-        data = data[0]
-    #%%
-    #blur in slice direction before projecting:
-    blurred = ndfilters.gaussian_filter(data,  (10,0,0))
-    
-    #%%
-    with ProgressBar():
-        proj = da.mean(data, axis = 0).compute()
-        proj_blur = da.mean(blurred, axis = 0).compute()
-    #%%
-
-    #%%
-    with ProgressBar():
-        proj_std = da.std(blurred, axis = 0).compute()
-        # proj_std_n = da.std(data, axis = 0).compute()
-
-    #%%
-    points = peak_finder(proj_std, max_sigma =10,threshold_rel=0.02, overlap = 1.,roi = [10,10,502,502], min_dist = 3)
-    #%%
-    points_blur = peak_finder(proj_std_n, max_sigma =10,threshold_rel=0.02, overlap = 1.,roi = [10,10,502,502], min_dist = 3)
+    spot_threshold = 0.05
+    peaks = peak_finder(im['std_proj'],
+                                   max_sigma =2,
+                                   threshold_rel=spot_threshold,
+                                   roi = [10,10,502,502], 
+                                   min_dist = 4)
     #%%
     
-    viewer = napari.Viewer()
+    fitted = np.array(peak_fitter(im['std_proj'],peaks,5))
     #%%
-    viewer.add_image(proj_std)
+    fitted_pos = fitted[:,1:3]
+#%%
+    v = Viewer()
     #%%
-    viewer.add_image(data)
-    
+    v.add_image(im['std_proj'], name = 'std')
     #%%
-    viewer.add_points(points,edge_color = 'green', face_color='transparent', size = 8, blending = 'additive', name = 'z blur before proj')
+    # v.add_image(im['data'], name = im['filename'])
+    v.add_points(peaks,edge_color = 'yellow', face_color='transparent', size = 7, edge_width = 0.05)
     #%%
-    viewer.add_points(points_blur,edge_color = 'magenta', face_color='transparent', size = 8, blending = 'additive',name = 'std proj')
-    
-    #%%
-    fitted_points = peak_fitter(proj,points,5)
-
-
-
-
-
-    viewer.add_points(fitted_points,edge_color = 'red', face_color='red',symbol ='cross' , size = 2, edge_width = 0.05)
+    v.add_points(fitted_pos,edge_color = 'yellow', face_color='yellow', opacity=0.5 , size = fitted[:,4], edge_width = 0.05)
