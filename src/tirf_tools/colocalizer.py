@@ -10,9 +10,11 @@ from tkinter import Tk
 # from dask_image import imread
 from dask.diagnostics import ProgressBar
 from dask import array as da
-import napari
+from napari import Viewer
+from tirf_tools import io, corrections,PeakFitter
 import pandas as pd
 # import skimage
+from dask import delayed
 import numpy as np
 # import scipy.optimize as opt
 # import tqdm
@@ -169,8 +171,8 @@ def find_drift(p1,p2,precision = 0.5, max_x = 5, max_y = 5, name1 = 'peaks1', na
     
     print('found {} colocalised peaks for drift {},{}'.format( n,drift[0],drift[1]))
     return n, drift, coloc
-
-def find_drift_v2(p1,p2,threshold = 1,precision = 0.5, max_x = 5, max_y = 5, name1 = 'peaks1', name2 = 'peaks2'):
+# @delayed
+def find_drift_v2(p1,p2,threshold = 1,precision = 1, max_x = 5, max_y = 5, name1 = 'peaks1', name2 = 'peaks2'):
     """
     This function expects a numpy array of shape (N,2) where N is the number of peaks.
     
@@ -188,12 +190,13 @@ def find_drift_v2(p1,p2,threshold = 1,precision = 0.5, max_x = 5, max_y = 5, nam
     drift = (0,0)
     coloc = np.array([])
     for i,(x,y) in enumerate(itertools.product(np.arange(-max_x,max_x+1,precision),np.arange(-max_y,max_y+1,precision))):
-        # print(i,(x,y))
+        
         
         #translate peaks2:
         drift_p2 = np.ones(p2.shape)
         drift_p2[:,0]=p2[:,0]+x
         drift_p2[:,1]=p2[:,1]+y
+        
         #find colocalised spots:
         # print(drift_p2[0],x,y)
         #change to pandas here. should still work
@@ -213,56 +216,66 @@ def find_drift_v2(p1,p2,threshold = 1,precision = 0.5, max_x = 5, max_y = 5, nam
     print('found {} colocalised peaks for drift {},{}'.format( n,drift[0],drift[1]))
     return n, drift, coloc
 
+def coloc_n_peaks(peaks, names = None):
+    if names is None:
+        names = list(map(str,range(len(peaks))))
+    #colocalise the first set of peaks with all others:
+    coloc_with_0 = []
+    for i,name in zip(peaks[1:],names[1:]):
+        print(peaks[0])
+        print(i)
+        coloc_with_0.append(find_drift_v2(peaks[0],i,
+                      name1 = names[0],
+                      name2 = name, 
+                      precision = 1, 
+                      threshold =1)[2])
+
 
 #%%    
 if __name__ == "__main__":
     
 
-    root = Tk() 
-    root.withdraw()
-    root.attributes("-topmost", True)
-    directoryfilename1 = filedialog.askopenfilename(title = 'choose raw data')
-    directoryfilename2 = filedialog.askopenfilename(title = 'choose raw data')
+    im = io.load_image()
+    corrections.correct_data(im, sigma= 20, darkframe=488)
     #%%
+    im[0]['std_proj'] = PeakFitter.projection(im[0]['corr_data'],projection='std')
+    im[1]['std_proj'] = PeakFitter.projection(im[1]['corr_data'],projection='std')
+    #%%
+    spot_threshold = 0.05
+    im[0]['peaks'] = PeakFitter.peak_finder(im[0]['std_proj'],
+                                   max_sigma =2,
+                                   threshold_rel=spot_threshold,
+                                   roi = [10,10,502,502], 
+                                   min_dist = 4)
+    im[1]['peaks'] = PeakFitter.peak_finder(im[1]['std_proj'],
+                                   max_sigma =2,
+                                   threshold_rel=spot_threshold,
+                                   roi = [10,10,502,502], 
+                                   min_dist = 4)
+    #%%
+    coloc_n_peaks([im[0]['peaks'],im[1]['peaks'],im[0]['peaks'],im[0]['peaks']])
+    #%%
+    # now colocalise B and D.
+    import time
     s = time.time()
-    data1 = io_all.load_dask_image(directoryfilename1)
-    data2 = io_all.load_dask_image(directoryfilename2)
-    #%%
-    s = time.time()
-    with ProgressBar():
-        proj1 = da.mean(data1, axis = 0).compute()
-    # del data1
-    # print('loaded and projected dataset in {} seconds'.format(time.time()-s))
-    with ProgressBar():
-        proj2 = da.mean(data2, axis = 0).compute()
-    # del data2
-    print('loaded and projected dataset in {} seconds'.format(time.time()-s))
-    print('find peaks now:')
-    #%%
-    v = napari.Viewer()
-    v.add_image(proj1)
-    v.add_image(proj2)
-    
-    #%%
-    peaks = pf.peak_finder(proj1,max_sigma =5,threshold_rel=0.05,roi = [10,10,502,502], min_dist = 4)
-    peaks2 = pf.peak_finder(proj2,max_sigma =5,threshold_rel=0.05,roi = [10,10,502,502], min_dist = 4)
-    #%%
-    v.add_points(peaks, face_color = 'transparent', name = 'colocalised peaks', edge_color = 'yellow')
-    #%%
-    v.add_points(peaks2, face_color = 'transparent', name = 'colocalised peaks', edge_color = 'magenta')
-    #%%
-    #find drift by maximising colocalised spots
-    # coloc= get_coloc_peaks_pd(peaks,peaks2,2)
-    
-    n, drift, coloc = find_drift(peaks,peaks2)
-    #%%
-    
-    v.add_points(coloc[['peak1_x','peak1_y']], face_color = 'transparent', name = 'peaks1', edge_color = 'green')
-    v.add_points(coloc[['peak2_x','peak2_y']], face_color = 'transparent', name = 'peaks2', edge_color = 'magenta')
-    
-    #%%
-    for i in enumerate(np.array(coloc[['peak1_x','peak1_y']])):
-        print(i)
+    n_colocBD, driftBD, coloc_peaksBD = find_drift_v2(im[0]['peaks'],im[0]['peaks'], 
+                                                                  name1 = 'probeB', 
 
-#%%
-    dfLA = integrator.integrate_trajectories(data1, np.array(coloc[['peak1_x','peak1_y']]), 2, 3)
+                                                                  name2 = 'probeD', 
+                                                                  precision = 1, 
+                                                                  threshold =1)
+    print(time.time()-s)
+    
+    
+    #%%
+    v = Viewer()
+    
+    v.add_image(im[0]['std_proj'], name = im[0]['filename'])
+    v.add_image(im[1]['std_proj'], name = im[1]['filename'])
+    #%%
+    # v.add_image(im['data'], name = im['filename'])
+    v.add_points(im[0]['peaks'],edge_color = 'yellow', face_color='transparent', size = 7, edge_width = 0.05)
+    v.add_points(im[0]['peaks'],translate=[-3,-5],edge_color = 'green', face_color='transparent', size = 7, edge_width = 0.05)
+    v.add_points(coloc_peaksBD[['probeB_x','probeB_y']],edge_color = 'magenta', face_color='transparent', size = 7, edge_width = 0.05)
+    #%%
+    v.add_points(fitted_pos,edge_color = 'yellow', face_color='yellow', opacity=0.5 , size = fitted[:,4], edge_width = 0.05)
