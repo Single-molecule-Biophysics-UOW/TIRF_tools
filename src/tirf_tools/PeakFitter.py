@@ -42,12 +42,8 @@ def chooseXY(data, dim_order = 'TCZYX'):
     print(num_dims)
     Xindex,Yindex = dim_order.index('X'), dim_order.index('Y')
     slices = [slice(0)] * num_dims
-
     slices[Xindex] = slice(data.shape[Xindex])
     slices[Yindex] = slice(data.shape[Yindex])
-
-
-
     data = data[tuple(slices)]
     print(data.shape)
 
@@ -56,7 +52,12 @@ def peak_finder(data, roi= [0,0,512,512], min_dist = 10,**kwargs):
     #kwords: max_sigma=20, threshold_rel=0.05, overlap = 1.
     #only 2D is supported for now
     #assumption: Y and X are the two last dimensions in the array
-    data=data.reshape(data.shape[-2],data.shape[-1])
+    try:
+        data=data.reshape(data.shape[-2],data.shape[-1])
+    except ValueError:
+        print('''failed to reshape the array into (1,Y,X,)\n
+              if you tried to find peaks on a multi color image try 
+              to separate the colors using indexing: color1 = data[0,0,:,:] etc.''')
     blobs_dog = skimage.feature.blob_log(data, **kwargs)
     peaks = blobs_dog[:,0:2]
     peaks = peaks[(peaks[:,0] > roi[0]) & (peaks[:,1] > roi[1])]

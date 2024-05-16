@@ -148,9 +148,6 @@ def integrate_trajectories_with_drift(data, peaks,inner_radius, outer_radius,dri
 #%%
 if __name__ == "__main__":
     
-    #load 2 datasets and make z-projections
-    # s = time.time()
-    # data = io.load_ome_zarr(path='load')
     
     data = io.load_image()
     #%%
@@ -160,12 +157,12 @@ if __name__ == "__main__":
     
     #%%
     data['std_proj'] = PeakFitter.projection(data['corr_data'],projection='std')
-    data['peaks'] = PeakFitter.peak_finder(data['std_proj'], 
+    data['peaks'] = PeakFitter.peak_finder(data['std_proj'][1,0,:,:], 
                                            max_sigma =2,
                                            threshold_rel=0.02, 
                                            roi = [10,10,502,502],
                                            min_dist = 5)
-    
+    #%%
     v = napari.Viewer()
     #%%
     v.add_points(data['peaks'], face_color='transparent', edge_color='yellow', symbol='square', size = 4)
