@@ -172,7 +172,7 @@ def find_drift(p1,p2,precision = 0.5, max_x = 5, max_y = 5, name1 = 'peaks1', na
     print('found {} colocalised peaks for drift {},{}'.format( n,drift[0],drift[1]))
     return n, drift, coloc
 # @delayed
-def find_drift_v2(p1,p2,threshold = 1,precision = 1, max_x = 5, max_y = 5, name1 = 'peaks1', name2 = 'peaks2'):
+def find_drift_v2(p1,p2,threshold = 1,precision = 1, max_x = 7, max_y = 7, name1 = 'peaks1', name2 = 'peaks2'):
     """
     This function expects a numpy array of shape (N,2) where N is the number of peaks.
     
@@ -216,19 +216,20 @@ def find_drift_v2(p1,p2,threshold = 1,precision = 1, max_x = 5, max_y = 5, name1
     print('found {} colocalised peaks for drift {},{}'.format( n,drift[0],drift[1]))
     return n, drift, coloc
 
-def coloc_n_peaks(peaks, names = None):
+def coloc_n_peaks(peaks, names = None, precision = 1, threshold = 1):
     if names is None:
         names = list(map(str,range(len(peaks))))
     #colocalise the first set of peaks with all others:
     coloc_with_0 = []
     for i,name in zip(peaks[1:],names[1:]):
-        print(peaks[0])
-        print(i)
+        # print(peaks[0])
+        # print(i)
         coloc_with_0.append(find_drift_v2(peaks[0],i,
                       name1 = names[0],
                       name2 = name, 
-                      precision = 1, 
-                      threshold =1)[2])
+                      precision = precision, 
+                      threshold = threshold)[2])
+    return coloc_with_0
 
 
 #%%    
@@ -240,42 +241,46 @@ if __name__ == "__main__":
     #%%
     im[0]['std_proj'] = PeakFitter.projection(im[0]['corr_data'],projection='std')
     im[1]['std_proj'] = PeakFitter.projection(im[1]['corr_data'],projection='std')
+    im[2]['std_proj'] = PeakFitter.projection(im[2]['corr_data'],projection='std')
     #%%
     spot_threshold = 0.05
-    im[0]['peaks'] = PeakFitter.peak_finder(im[0]['std_proj'],
+    im[0]['c1'] = PeakFitter.peak_finder(im[0]['std_proj'],
                                    max_sigma =2,
                                    threshold_rel=spot_threshold,
                                    roi = [10,10,502,502], 
                                    min_dist = 4)
-    im[1]['peaks'] = PeakFitter.peak_finder(im[1]['std_proj'],
+    im[1]['c2'] = PeakFitter.peak_finder(im[1]['std_proj'],
+                                   max_sigma =2,
+                                   threshold_rel=spot_threshold,
+                                   roi = [10,10,502,502], 
+                                   min_dist = 4)
+    im[2]['c3'] = PeakFitter.peak_finder(im[2]['std_proj'],
                                    max_sigma =2,
                                    threshold_rel=spot_threshold,
                                    roi = [10,10,502,502], 
                                    min_dist = 4)
     #%%
-    coloc_n_peaks([im[0]['peaks'],im[1]['peaks'],im[0]['peaks'],im[0]['peaks']])
-    #%%
-    # now colocalise B and D.
-    import time
-    s = time.time()
-    n_colocBD, driftBD, coloc_peaksBD = find_drift_v2(im[0]['peaks'],im[0]['peaks'], 
-                                                                  name1 = 'probeB', 
-
-                                                                  name2 = 'probeD', 
-                                                                  precision = 1, 
-                                                                  threshold =1)
-    print(time.time()-s)
+    coloc_list = coloc_n_peaks([im[0]['c1'],im[1]['c2'],im[2]['c3']],threshold = 3)
+    import functools as ft
+    df_final = ft.reduce(lambda left, right: pd.merge(left, right,on=['0_x','0_y']), coloc_list)    
     
+    
+    
+    #%%
+
     
     #%%
     v = Viewer()
     
     v.add_image(im[0]['std_proj'], name = im[0]['filename'])
     v.add_image(im[1]['std_proj'], name = im[1]['filename'])
+    v.add_image(im[2]['std_proj'], name = im[2]['filename'])
     #%%
     # v.add_image(im['data'], name = im['filename'])
-    v.add_points(im[0]['peaks'],edge_color = 'yellow', face_color='transparent', size = 7, edge_width = 0.05)
-    v.add_points(im[0]['peaks'],translate=[-3,-5],edge_color = 'green', face_color='transparent', size = 7, edge_width = 0.05)
-    v.add_points(coloc_peaksBD[['probeB_x','probeB_y']],edge_color = 'magenta', face_color='transparent', size = 7, edge_width = 0.05)
+    v.add_points(im[0]['c1'],edge_color = 'yellow', face_color='transparent', size = 7, edge_width = 0.05, name ='c1')
+    v.add_points(im[1]['c2'],edge_color = 'green', face_color='transparent', size = 7, edge_width = 0.05, name ='c2')
+    v.add_points(im[2]['c3'],edge_color = 'green', face_color='transparent', size = 7, edge_width = 0.05, name ='c3')
     #%%
-    v.add_points(fitted_pos,edge_color = 'yellow', face_color='yellow', opacity=0.5 , size = fitted[:,4], edge_width = 0.05)
+    v.add_points(df_final[['0_x','0_y']],edge_color = 'magenta', face_color='transparent', size = 7, edge_width = 0.05)
+    #%%
+    
