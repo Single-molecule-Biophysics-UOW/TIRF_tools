@@ -229,7 +229,11 @@ def coloc_n_peaks(peaks, names = None, precision = 1, threshold = 1):
                       name2 = name, 
                       precision = precision, 
                       threshold = threshold)[2])
-    return coloc_with_0
+    
+    import functools as ft
+    #merge all colocalised peaks and see which one appear in every channel:
+    df_final = ft.reduce(lambda left, right: pd.merge(left, right,on=[str(names[0])+'_x',str(names[0])+'_y']), coloc_with_0)   
+    return df_final
 
 
 #%%    
