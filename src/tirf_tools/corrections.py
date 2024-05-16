@@ -46,8 +46,9 @@ def correct_data(data, sigma, darkframe):
     if not isinstance(data,list):
         data = [data]
     for i in data:
+        corr = div_by_gauss_da(i['data'])
         with ProgressBar():
-            i['corr_data'] = div_by_gauss_da(i['data']).compute()
+            i['corr_data'] = corr.compute()
 
     
     

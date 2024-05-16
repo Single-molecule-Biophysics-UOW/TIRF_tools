@@ -15,18 +15,29 @@ from dask import delayed
 import napari
 
 import numpy as np
+from tirf_tools import io, corrections,PeakFitter
 
-from HMM_barcoding.image_utils import PeakFitter as pf
 import time
 import pandas as pd
 from dask.diagnostics import ProgressBar
 from concurrent.futures import ThreadPoolExecutor
 import dask.config as cfg
 # from dask_image.ndfilters import gaussian as gaussian
+# #%%
 #%%
 pool = ThreadPoolExecutor()
 cfg.set(pool=pool)
-#%%
+
+
+
+def chooseTXY(data, dim_order = 'TCZYX'):
+    """
+    convenience method to select TXY 3d array from an N-d image
+    """
+    
+    Xindex,Yindex, Tindex = dim_order.index('X'), dim_order.index('Y'), dim_order.index('T')
+    Xsize, Ysize, Tsize = data.shape[Xindex],data.shape[Yindex],data.shape[Tindex]
+    return data.reshape(Tsize,Ysize,Xsize)
 
 def stack_trajs(x,y):
     return da.hstack([x,y])
@@ -53,7 +64,9 @@ def integrate(bg_selection,i_r, bg_r,inner_area ,outer_area, peak, i):
     return traj_bg
 
 def integrate_trajectories(data, peaks,inner_radius, outer_radius):
-    #the integrator expects (1,512,512)
+    #the integrator expects (T,X,Y)
+    #multi color is not directly supported yet
+    data = chooseTXY(data)
     if len(data.shape) <3:
         data = data.reshape(1,512,512)  #this is bad practise
     s = time.time()    
@@ -92,6 +105,9 @@ def integrate_trajectories(data, peaks,inner_radius, outer_radius):
     return df
 
 def integrate_trajectories_with_drift(data, peaks,inner_radius, outer_radius,drift):
+    #the integrator expects (T,X,Y)
+    #multi color is not directly supported yet
+    data = chooseTXY(data)
     s = time.time()    
     #pixel area calculations
     inner_area = (inner_radius+1+inner_radius)**2
@@ -136,39 +152,30 @@ if __name__ == "__main__":
     # s = time.time()
     # data = io.load_ome_zarr(path='load')
     
-    data = imread.imread(r'Z:\Barcoding_subgroup\Current_experiments\230703_1\corr/corrected_ClpS_B6_60nMLAR6g_OD15_003.tif')
+    data = io.load_image()
     #%%
+    data = data[0]
+    corrections.correct_data(data, sigma= 20, darkframe=488)
     
-    data = data.compute()
-    #%%
-    data = np.nan_to_num(data, posinf=0.0)
     
     #%%
+    data['std_proj'] = PeakFitter.projection(data['corr_data'],projection='std')
+    data['peaks'] = PeakFitter.peak_finder(data['std_proj'], 
+                                           max_sigma =2,
+                                           threshold_rel=0.02, 
+                                           roi = [10,10,502,502],
+                                           min_dist = 5)
+    
     v = napari.Viewer()
-    v.add_image(data)
     #%%
-    with ProgressBar():        
-        proj = da.mean(data,axis=0).compute()
-    # proj = np.mean(data,axis=0)
-        
-    #%%
-    v.add_image(proj)
-    #%%
-    s = time.time()
-    with ProgressBar():        
-        #kwords: max_sigma=20, threshold_rel=0.05, overlap = 1.
-        peaks = pf.peak_finder(proj, max_sigma =60,threshold_rel=0.02, overlap = 1.,roi = [10,10,502,502], min_dist = 5)
-    print('found peaks in {} seconds'.format(time.time()-s))
-    
-    
-    v.add_points(peaks, opacity = 0.5, face_color = 'transparent',edge_color = 'red')
+    v.add_points(data['peaks'], face_color='transparent', edge_color='yellow', symbol='square', size = 4)
+    v.add_image(data['std_proj'])
     
     #%%
-    with ProgressBar(): 
-        data = data.compute()
+    test = chooseTXY(data['corr_data'])
     #%%
-    df = integrate_trajectories(data,peaks,2, 3)
+    
+    data['integration'] = integrate_trajectories(data['corr_data'],data['peaks'],2, 3)
 
     
-    #%%
-    io.save_data(df,'corrected_ClpS_B6_60nMLAR6g_OD15_003.h5',path='load')
+
