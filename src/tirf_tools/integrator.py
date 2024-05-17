@@ -12,7 +12,7 @@ from dask import array as da
 import dask as dask
 
 from dask import delayed
-import napari
+
 
 import numpy as np
 from tirf_tools import io, corrections,PeakFitter

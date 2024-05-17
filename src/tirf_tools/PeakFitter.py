@@ -8,25 +8,20 @@ peak finder and fitter for python!
 
 """
 
-from tkinter import filedialog
-from tkinter import Tk
-from dask_image import imread
+
 from tirf_tools import io, corrections
 
-from HMM_barcoding.image_utils import io_all
-from dask import array as da
-from dask_image import ndfilters
-from napari import Viewer
+
 import skimage
 import numpy as np
 import scipy.optimize as opt
 import tqdm
-from dask.diagnostics import ProgressBar
+
 from scipy.spatial import distance
 # from scipy import 
 # from ome_zarr.io import parse_url
 # from ome_zarr.reader import Reader
-import napari
+
 from concurrent.futures import ThreadPoolExecutor
 import dask.config as cfg
 pool = ThreadPoolExecutor()

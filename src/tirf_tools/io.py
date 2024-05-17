@@ -8,23 +8,19 @@ Created on Mon May 29 13:05:18 2023
 from tkinter import filedialog
 from tkinter import Tk
 from dask_image import imread
-import traceback
+
 # import dask as da
 import skimage
 import numpy as np
-from dask.diagnostics import ProgressBar
-from tirf_tools import corrections
-import pims
-import glob
-import numbers
-import warnings
+
+
 import aicsimageio
-import dask.array as da
+
 # import numpy as np
 # import pims
-from tifffile import natural_sorted
+
 import os
-import warnings
+
 import nd2reader      #somehow this line convinces pims to use nd2reader instead of bioformats!
 #%%
 def save_tiff(data, path = None,**kwargs):
