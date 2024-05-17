@@ -137,15 +137,21 @@ def peak_fitter(data, points, r, intitial_guess = [2,2,0,0]):
         # #write result in a list
         spots.append([popt[0],popt[1], popt[2], popt[3],popt[4], popt[5], popt[6]])
     return spots
+
+
+
+
         
 #%%    
 if __name__ == "__main__":    
     im = io.load_image()
     corrections.correct_data(im, sigma= 20, darkframe=488)
+    #%%
+    
     im['std_proj'] = projection(im['corr_data'],projection='std')
     #%%
     spot_threshold = 0.05
-    peaks = peak_finder(im['std_proj'],
+    peaks = peak_finder(im['corr_data'],
                                    max_sigma =2,
                                    threshold_rel=spot_threshold,
                                    roi = [10,10,502,502], 
@@ -158,7 +164,7 @@ if __name__ == "__main__":
 #%%
     v = Viewer()
     #%%
-    v.add_image(im['std_proj'], name = 'std')
+    v.add_image(im['corr_data'], name = 'std')
     #%%
     # v.add_image(im['data'], name = im['filename'])
     v.add_points(peaks,edge_color = 'yellow', face_color='transparent', size = 7, edge_width = 0.05)
