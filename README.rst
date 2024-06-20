@@ -23,10 +23,6 @@ colllection of tools to analyse single-molecule data from TIRF microscopes
 * Documentation: https://tirf-tools.readthedocs.io.
 
 
-##Installation
-``` pip install tirf_tools```
-
-
 Features
 --------
 
