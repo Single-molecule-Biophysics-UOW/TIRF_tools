@@ -16,7 +16,7 @@ from dask import delayed
 
 import numpy as np
 from tirf_tools import io, corrections,PeakFitter
-
+import warnings
 import time
 import pandas as pd
 from dask.diagnostics import ProgressBar
@@ -34,10 +34,25 @@ def chooseTXY(data, dim_order = 'TCZYX'):
     """
     convenience method to select TXY 3d array from an N-d image
     """
-    
-    Xindex,Yindex, Tindex = dim_order.index('X'), dim_order.index('Y'), dim_order.index('T')
-    Xsize, Ysize, Tsize = data.shape[Xindex],data.shape[Yindex],data.shape[Tindex]
-    return data.reshape(Tsize,Ysize,Xsize)
+    #select all dimensions with shape >1:
+    data = np.squeeze(data)
+    if len(data.shape)>3:
+        warnings.warn("""Only 3D arrays (TYX) are currently supported. 
+If you tried to integrate multi-color or multi-series data, try splitting them first""")
+        num_dims = len(data.shape)
+        index_tuple = []
+        for i in range(num_dims):
+            if i in [0,num_dims-2,num_dims-1]:
+                index_tuple.append(slice(None,None,None))
+            else:
+                index_tuple.append(0)
+        index_tuple = tuple(index_tuple)
+        data = data[index_tuple]
+    elif len(data.shape)==2:
+        data = np.expand_dims(data,axis=0)
+    # Xindex,Yindex, Tindex = dim_order.index('X'), dim_order.index('Y'), dim_order.index('T')
+    # Xsize, Ysize, Tsize = data.shape[Xindex],data.shape[Yindex],data.shape[Tindex]
+    return data#.reshape(Tsize,Ysize,Xsize)
 
 def stack_trajs(x,y):
     return da.hstack([x,y])
@@ -151,13 +166,13 @@ if __name__ == "__main__":
     
     data = io.load_image()
     #%%
-    data = data[0]
+    
     corrections.correct_data(data, sigma= 20, darkframe=488)
     
     
     #%%
     data['std_proj'] = PeakFitter.projection(data['corr_data'],projection='std')
-    data['peaks'] = PeakFitter.peak_finder(data['std_proj'][1,0,:,:], 
+    data['peaks'] = PeakFitter.peak_finder(data['std_proj'], 
                                            max_sigma =2,
                                            threshold_rel=0.02, 
                                            roi = [10,10,502,502],
@@ -165,14 +180,14 @@ if __name__ == "__main__":
     #%%
     v = napari.Viewer()
     #%%
-    v.add_points(data['peaks'], face_color='transparent', edge_color='yellow', symbol='square', size = 4)
-    v.add_image(data['std_proj'])
+    # v.add_points(data['peaks'], face_color='transparent', edge_color='yellow', symbol='square', size = 4)
+    v.add_image(f)
     
     #%%
     test = chooseTXY(data['corr_data'])
     #%%
     
-    data['integration'] = integrate_trajectories(data['corr_data'],data['peaks'],2, 3)
+    data['integration'] = integrate_trajectories(f,data['peaks'],2, 3)
 
     
 

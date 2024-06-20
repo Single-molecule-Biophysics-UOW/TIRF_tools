@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 name = "tirf_tools"
 version = "0.5.1"
 description = "colllection of tools to analyse single-molecule data from TIRF microscopes"
-readme = "README.rst"
 authors = [
   {name = "Stefan H. Mueller", email = "smueller@uow.edu.au"}
 ]
@@ -18,8 +17,22 @@ classifiers = [
 ]
 license = {text = "MIT license"}
 dependencies = [
-  
+  "numpy >=1.26.4",
+  "scipy >=1.11.4",
+  "matplotlib >= 3.5.1",
+  "dask >=2022.02.1",
+  "dask-image >=2023.03.0",
+  "aicsimageio >=4.14.0",
+  "skimage >=0.19.2",
+  "pandas >=2.0.3",
+  "tqdm >=4.64.0"
 ]
+
+[project.readme]
+readme = "README.md"
+content-type = "text/markdown"
+
+
 
 [project.optional-dependencies]
 dev = [
