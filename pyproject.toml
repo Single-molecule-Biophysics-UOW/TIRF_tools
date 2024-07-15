@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "tirf_tools"
 version = "0.5.2"
 description = "colllection of tools to analyse single-molecule data from TIRF microscopes"
-readme = "README.rst"
+
 dynamic = ["dependencies","readme"]
 authors = [
   {name = "Stefan H. Mueller", email = "smueller@uow.edu.au"}
@@ -17,8 +17,9 @@ maintainers = [
 classifiers = [
 ]
 requires-python = ">=3.9"
+
 license = {text = "MIT license"}
-requires-python": ">=3.7
+
 
 [project.optional-dependencies]
 dev = [
