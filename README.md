@@ -1,6 +1,6 @@
-==========
-TIRF tools
-==========
+
+#TIRF tools
+
 
 
 .. image:: https://img.shields.io/pypi/v/tirf_tools.svg
