@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tirf_tools"
-version = "0.5.3"
+version = "0.5.4"
 description = "colllection of tools to analyse single-molecule data from TIRF microscopes"
 
 dynamic = ["dependencies","readme"]
