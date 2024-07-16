@@ -77,42 +77,63 @@ def corr_shift(shift,frame):
     corr_frame = ndi.affine_transform(frame, matrix)
     return corr_frame
 
-def drift_correct(data, key = 'corr_data'):
+def check_color(data):
+    #if 5D we assume TCZYX
+    #if 4D: TCYX
+    #check how many dimensions are greater than 1:
+    n_dims = sum(i>1 for i in data.shape)
+    if n_dims>3:
+        print('color channels detected')
+    #we assume color is dim 1.
+    return data.shape[1]
+        
+
+def drift_correct(data, key = 'corr_data', color_channel = 0):
     if not isinstance(data,list):
         data = [data]
     #prepare filter
     win = skimage.filters.window('hann', (512,512))
     win = fft.fftshift(win)
     for i in data:
-        frame1 = i[key][0,0,0,:,:]   #assuming 5D image and T being the first        
+        color = check_color(i[key])
+        channel = i[key][:,color_channel,0,:,:]
+        
+        
+        frame1_channel = channel[0,:,:]   #assuming 5D image and T being the first        
         shift = []
+                
+        #loop through frames and calculate drift
+        for frame in range(channel.shape[0]):
+            shift.append(calc_shift(channel[frame,:,:],frame1_channel,win))
         
-        
-        
-        for frame in range(i[key].shape[0]):
-            shift.append(calc_shift(i[key][frame,0,0,:,:],frame1,win))
-        print("Calculate drift")
+        if color>1:
+            print("Calculate drift in channel {}".format(color_channel))
+        else:
+            print("Calculate drift")
         with ProgressBar():
             final = da.compute(*shift)
         final= np.concatenate(final)    #stack into np.array
-        
         #set first frame for corrected movie
-        corr_movie = [i[key][0,0,0,:,:]]
+        all_colors = []
+        for c in range(color):
+            corr_movie = [i[key][0,c,0,:,:]]
+            for frame, shift_n in zip(range(1,i[key].shape[0],1),final[1:]):
+                corr_frame = corr_shift(shift_n,i[key][frame,c,0,:,:])            
+                corr_movie.append(corr_frame)
         
-        for frame, shift_n in zip(range(1,i[key].shape[0],1),final[1:]):
-            print(frame,shift_n)
-            # i[key][frame,0,0,:,:]
-            corr_frame = corr_shift(shift_n,i[key][frame,0,0,:,:])            
-            corr_movie.append(corr_frame)
-        print('Correct data')
-        with ProgressBar():
-            movie = da.compute(*corr_movie)  
-        print(movie[0].shape)
-        print(movie[1].shape)
-        movie = np.stack(movie)   #stack into one array
-        while len(movie.shape)<len(data[0][key].shape):
-            movie= np.expand_dims(movie,axis=-3)
-        i['drift_corr'] = movie
+            if color>1:
+                print("Apply drift in channel {}".format(c))
+            else:
+                print('Apply drift')
+            with ProgressBar():
+                movie = da.compute(*corr_movie)  
+            movie = np.stack(movie)   #stack into one array
+            
+            while len(movie.shape)<len(data[0][key].shape):
+                movie= np.expand_dims(movie,axis=-3)    #should become 5D again
+            all_colors.append(movie)
+        final_m = np.concatenate(all_colors, axis = 1)
+        i['drift_corr'] = final_m
 
 #%%
     
