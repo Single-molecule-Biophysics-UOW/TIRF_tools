@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tirf_tools"
-version = "0.5.5"
+version = "0.5.6"
 description = "colllection of tools to analyse single-molecule data from TIRF microscopes"
 
 dynamic = ["dependencies","optional-dependencies","readme"]
@@ -20,15 +20,6 @@ requires-python = ">=3.9"
 
 license = {text = "MIT license"}
 
-
-[project.optional-dependencies]
-dev = [
-    "coverage",  # testing
-    "mypy",  # linting
-    "pytest",  # testing
-    "ruff"  # linting
-]
-
 [project.urls]
 
 bugs = "https://github.com/stefanhmueller/tirf_tools/issues"
@@ -41,6 +32,7 @@ package-dir = {"" = "src"}
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 optional-dependencies.visualize = {file = ["visualize-requirements.txt"]}
+optional-dependencies.testing =  {file = ["testing-requirements.txt"]}
 readme = {file = ["README.md"], content-type = "text/markdown"}
 
 [tool.setuptools.package-data]
