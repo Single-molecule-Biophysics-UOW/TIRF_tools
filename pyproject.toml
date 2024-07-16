@@ -7,7 +7,7 @@ name = "tirf_tools"
 version = "0.5.5"
 description = "colllection of tools to analyse single-molecule data from TIRF microscopes"
 
-dynamic = ["dependencies","readme"]
+dynamic = ["dependencies","optional-dependencies","readme"]
 authors = [
   {name = "Stefan H. Mueller", email = "smueller@uow.edu.au"}
 ]
@@ -40,7 +40,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
-
+optional-dependencies.visualize = {file = ["visualize-requirements.txt"]}
 readme = {file = ["README.md"], content-type = "text/markdown"}
 
 [tool.setuptools.package-data]
